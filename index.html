@@ -62,6 +62,7 @@ body.sheet-open .wrap{padding-bottom:560px;}
 .rc .t{font-size:12px;color:var(--text3);margin-top:1px;}
 .rc.on{background:#34343a;}
 .rc.on .n{color:#fff;font-weight:600;} .rc.on .t{color:var(--text2);}
+.rc.off .n,.rc.off .t{opacity:.45;}
 .rc .dot{position:absolute;top:6px;right:7px;width:5px;height:5px;border-radius:50%;background:#fff;}
 
 /* race header */
@@ -71,6 +72,7 @@ body.sheet-open .wrap{padding-bottom:560px;}
 .post .v{font-size:19px;font-weight:600;}
 .rhead .a{font-size:18px;font-weight:600;}
 .rhead .b{font-size:14px;color:var(--text2);margin-top:3px;}
+.rhead .scope{display:inline-block;margin-top:6px;font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;border:1px solid var(--line2);color:var(--text2);}
 .sep{color:var(--text3);margin:0 5px;font-weight:300;}
 
 /* race / model tabs */
@@ -201,7 +203,7 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
 <body>
 <div class="wrap">
   <div class="top">
-    <div class="topline"><div class="track">Fonner Park</div><div class="date" id="date"></div>
+    <div class="topline"><div class="track" id="track">Fonner Park</div><div class="date" id="date"></div>
       <button class="gear" id="open-menu" aria-label="Menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     </div>
     <div class="strip" id="strip"></div>
@@ -305,6 +307,7 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
   }
   function dist(y) {
     if (!y) return '';
+    if (y < 880) return y + 'y';
     if (y < 1760) { const f = y / 220, w = Math.floor(f + 1e-9); return (Math.abs(f - w - 0.5) < 0.01 ? w + '½' : String(Math.round(f * 10) / 10)) + 'f'; }
     if (y === 1760) return '1m';
     const ex = y - 1760;
@@ -360,7 +363,11 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
   // ---------------------------------------------------------------- race state
   const race = () => CARD ? CARD.races[S.cur] : null;
   function rs(r) { if (!S.races[r.race_id]) S.races[r.race_id] = { scr: [], odds: {}, hist: [] }; const x = S.races[r.race_id]; x.hist = x.hist || []; return x; }
-  const meetFor = d => (MODEL.meet_start && MODEL.meet_start[d.slice(0, 4)]) || (d.slice(0, 4) + '-02-14');
+  const tinfo = d => F.trackInfo(MODEL, CARD ? CARD.track : null, d || (CARD ? CARD.race_date : ''));
+  const meetFor = d => tinfo(d).meet_start;
+  const modeled = r => F.raceScope(r).modeled;
+  const scopeTag = r => { const sc = F.raceScope(r); return sc.outside ? `<br><span class="scope">${sc.modeled ? 'Outside Fonner data' : 'Not modeled'}</span>` : ''; };
+  const cardRaces = () => CARD.races.filter(modeled).length;   // race money: only races the model bets
   function cells(r) {   // one odds box per betting interest still running
     const scr = new Set(rs(r).scr), seen = new Set(), out = [];
     r.horses.forEach(h => {
@@ -373,16 +380,17 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
   }
   function drf(r) {
     const key = r.race_id + '|' + [...rs(r).scr].sort().join(',');
+    if (!modeled(r)) return { runners: [], p: [], feats: null };
     if (!CACHE[key]) CACHE[key] = F.drfLineRace(MODEL, r, new Set(rs(r).scr), meetFor(r.race_date));
     return CACHE[key];
   }
   // the betting model, once every running horse has odds (recomputed on every change; a few ms)
   function live(r) {
     const st = rs(r), cs = cells(r);
-    if (cs.length < 2 || cs.some(c => !F.parseOdds(st.odds[c.k]))) return null;
+    if (!modeled(r) || cs.length < 2 || cs.some(c => !F.parseOdds(st.odds[c.k]))) return null;
     const key = r.race_id + '|' + [...st.scr].sort().join(',') + '|' + cs.map(c => c.k + '=' + st.odds[c.k]).join(',');
     if (!CACHE[key]) {
-      const out = F.runRace(MODEL, CARD.races.length, r, new Set(st.scr), k => F.parseOdds(st.odds[k]), meetFor(r.race_date));
+      const out = F.runRace(MODEL, cardRaces(), r, new Set(st.scr), k => F.parseOdds(st.odds[k]), meetFor(r.race_date));
       CACHE[key] = out.error ? null : out;
     }
     return CACHE[key];
@@ -391,11 +399,12 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
 
   // ---------------------------------------------------------------- top + strip
   function renderTop() {
+    $('track').textContent = CARD ? tinfo().name : 'Fonner Park';
     $('date').textContent = CARD ? niceDate(CARD.race_date, { weekday: 'short', month: 'short', day: 'numeric' }) : '';
     if (!CARD) { $('strip').style.display = 'none'; return; }
     $('strip').style.display = '';
     $('strip').innerHTML = CARD.races.map((r, i) =>
-      `<div class="rc ${i === S.cur ? 'on' : ''}" data-i="${i}">${S.saved[r.race_id] ? '<span class="dot"></span>' : ''}<div class="n">R${r.race_no}</div><div class="t num">${esc(r.post_time || '')}</div></div>`).join('');
+      `<div class="rc ${i === S.cur ? 'on' : ''} ${modeled(r) ? '' : 'off'}" data-i="${i}">${S.saved[r.race_id] ? '<span class="dot"></span>' : ''}<div class="n">R${r.race_no}</div><div class="t num">${esc(r.post_time || '')}</div></div>`).join('');
     document.querySelectorAll('.rc').forEach(el => el.addEventListener('click', () => { S.cur = +el.dataset.i; save(); closeSheet(); render(); window.scrollTo(0, 0); }));
     const on = document.querySelector('.rc.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
   }
@@ -412,7 +421,7 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
     const n = r.horses.filter(h => !scr.has(h.program)).length;
     $('post').textContent = r.post_time || '–';
     $('ra').innerHTML = `Race ${r.race_no}${SEP}${dist(r.distance_yards)}${SEP}${n} runners`;
-    $('rb').innerHTML = `${esc(raceType(r))}${SEP}$${(r.purse || 0).toLocaleString()} purse`;
+    $('rb').innerHTML = `${esc(raceType(r))}${SEP}$${(r.purse || 0).toLocaleString()} purse${scopeTag(r)}`;
     $('t-race').style.display = tab === 'race' ? '' : 'none';
     $('t-model').style.display = tab === 'model' ? '' : 'none';
     if (tab === 'model') return renderModel();
@@ -434,7 +443,7 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
       const o = st.odds[k];
       let box;
       if (s) box = `<div class="ob scr" data-odds="${esc(k)}" data-scrd="1">SCR</div>`;
-      else if (!first.has(h.program)) box = `<div class="ob blank" style="visibility:hidden"></div>`;
+      else if (!first.has(h.program) || !modeled(r)) box = `<div class="ob blank" style="visibility:hidden"></div>`;
       else box = `<div class="ob ${o ? '' : 'blank'} ${k === fav ? 'fav' : ''} num" data-odds="${esc(k)}">${o ? esc(o.replace(/-1$/, '')) : ''}</div>`;
       return `<div class="runner ${s ? 'scr' : ''}">
         <div class="cloth" style="background:${c[0]};color:${c[1]}">${esc(h.program)}</div>
@@ -541,14 +550,14 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
           <div class="nm"><div class="a">${esc(horseName(h.name))}${s ? ' | scratched' : ''}</div><div class="b">${h.age != null ? h.age + 'yo ' : ''}${SEX[h.sex] || ''} | ML ${mlText(h.morning_line)}${il ? ' | board ' + F.fmtOdds(il.odds).replace(/-1$/, '') : ''}</div></div></div>
         <div class="pl">
           <div><div class="l">DRF line</div><div class="v num">${s || pd == null ? '–' : exact(F.fairOdds(pd)) + ' <small>' + pct(pd) + '</small>'}</div></div>
-          <div><div class="l">Model line</div><div class="v num">${il ? exact(F.fairOdds(il.p)) + ' <small>' + pct(il.p) + '</small>' : '<small>when all odds are in</small>'}</div></div>
+          <div><div class="l">Model line</div><div class="v num">${il ? exact(F.fairOdds(il.p)) + ' <small>' + pct(il.p) + '</small>' : modeled(r) ? '<small>when all odds are in</small>' : '–'}</div></div>
         </div>
         <div class="st"><span class="l">Jockey</span><span class="v">${esc(person(h.jockey))}<span class="sub num">${wps(h.jky_meet)}${of(h.jky_meet)}</span></span></div>
         <div class="st"><span class="l">Trainer</span><span class="v">${esc(person(h.trainer))}<span class="sub num">${wps(h.trn_meet)}${of(h.trn_meet)}</span></span></div>
         <div class="st"><span class="l">Jockey + trainer, last year</span><span class="v num">${jt}</span></div>
         <div class="st"><span class="l">Lifetime</span><span class="v num">${rec(h.life)}${h.life && h.life.earnings ? ' | ' + money(h.life.earnings) : ''}</span></div>
         ${yr(h.ytd)}${yr(h.prior)}
-        <div class="st"><span class="l">At Fonner</span><span class="v num">${rec(h.trk)}</span></div>
+        <div class="st"><span class="l">At ${esc(tinfo().short)}</span><span class="v num">${rec(h.trk)}</span></div>
         <div class="st"><span class="l">At this distance</span><span class="v num">${rec(h.dist)}</span></div>
         <div class="st"><span class="l">Speed, last 3</span><span class="v num">${figs}</span></div>
         <div class="st"><span class="l">Best speed at this distance</span><span class="v num">${avg(f.speed_best_dist)}</span></div>
@@ -647,7 +656,7 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
   function renderMenu() {
     if (CARD) {
       const f = CARD.races[0], l = CARD.races[CARD.races.length - 1];
-      $('card-status').innerHTML = `<b style="color:#fff">${esc(niceDate(CARD.race_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))}</b><br>${CARD.races.length} races${f.post_time ? ` | post ${esc(f.post_time)} to ${esc(l.post_time)}` : ''} | ${esc(S.drfName || '')}`;
+      $('card-status').innerHTML = `<b style="color:#fff">${esc(niceDate(CARD.race_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))}</b><br>${CARD.races.length} races${CARD.races.length > cardRaces() ? ` (${CARD.races.length - cardRaces()} not modeled)` : ''}${f.post_time ? ` | post ${esc(f.post_time)} to ${esc(l.post_time)}` : ''} | ${esc(S.drfName || '')}`;
       $('drf-label').textContent = 'Load a different DRF';
     } else { $('card-status').textContent = 'No card loaded.'; $('drf-label').textContent = 'Load DRF file'; }
     const bets = savedToday();
@@ -661,15 +670,16 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
     const bets = savedToday();
     if (!bets.length) { $('dl-msg').innerHTML = '<div class="note bad">No bets saved yet.</div>'; return; }
     const date = bets[0].date;
-    const body = JSON.stringify({ app: 'fonner-bets', downloaded_at: new Date().toISOString(), card_date: date, drf_file: S.drfName,
+    const ti = tinfo(date), fname = `${ti.track === 'FON' ? 'fonner' : ti.short.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${date}.json`;
+    const body = JSON.stringify({ app: 'fonner-bets', downloaded_at: new Date().toISOString(), card_date: date, track: ti.track, drf_file: S.drfName,
       model: MODEL.version, bets, odds_history: Object.fromEntries(Object.entries(S.races).filter(([k]) => k.startsWith(date)).map(([k, v]) => [k, v.hist || []])),
       scored: S.scored }, null, 1);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
-    a.download = `fonner-${date}.json`;
+    a.download = fname;
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-    $('dl-msg').innerHTML = `<div class="note good">Downloaded fonner-${date}.json.</div>`;
+    $('dl-msg').innerHTML = `<div class="note good">Downloaded ${esc(fname)}.</div>`;
   });
   $('clear-all').addEventListener('click', () => {
     if (!confirm('Clear the card and the saved bets from this phone?')) return;

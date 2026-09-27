@@ -1,5 +1,5 @@
 // Network first, so updates show up right away; the saved copy is used only when offline.
-const CACHE = 'fonner-bets-v4';
+const CACHE = 'fonner-bets-v5';
 const FILES = ['./', 'index.html', 'fonner.js', 'model.json', 'manifest.webmanifest', 'icon.png', 'jszip.min.js',
   'fonts/nunito-sans-latin-400-normal.woff2', 'fonts/nunito-sans-latin-500-normal.woff2', 'fonts/nunito-sans-latin-600-normal.woff2',
   'fonts/nunito-sans-latin-700-normal.woff2', 'fonts/nunito-sans-latin-800-normal.woff2'];

@@ -180,7 +180,7 @@
 
   // ------------------------------------------------------------ 1. DRF
   const D = {
-    DATE: 2, RACE: 3, POST: 4, DIST: 6, SURFACE: 7, RACE_TYPE: 9, CLASS: 11, PURSE: 12,
+    TRACK: 1, DATE: 2, RACE: 3, POST: 4, DIST: 6, SURFACE: 7, RACE_TYPE: 9, AGE_SEX: 10, CLASS: 11, PURSE: 12, BREED: 23,
     TRAINER: 28, TRN: 29, JOCKEY: 33, JKY: 35, PROGRAM: 43, ML: 44, HORSE: 45,
     FOAL_YY: 46, SEX: 49, WEIGHT: 51,
     REC_DIST: 65, REC_TRACK: 70, REC_TURF: 75, REC_OFF: 80, REC_AW: 231, REC_FD: 1332,
@@ -197,17 +197,18 @@
   function parseDRF(textIn, fallbackDate) {
     const rows = parseCSV(textIn);
     const races = new Map();
-    let raceDate = null;
+    let raceDate = null, track = null;
     for (const row of rows) {
       const raceNo = whole(row, D.RACE);
       if (raceNo === null) continue;
       if (!raceDate) raceDate = parseDate(get(row, D.DATE)) || fallbackDate || null;
+      if (!track) track = text(row, D.TRACK);
       if (!raceDate) throw new Error('Could not read the race date from the file.');
       const raceId = raceDate + '-' + raceNo;
       if (!races.has(raceId)) {
         races.set(raceId, {
-          race_id: raceId, race_no: raceNo, race_date: raceDate,
-          surface: text(row, D.SURFACE), distance_yards: num(row, D.DIST),
+          race_id: raceId, race_no: raceNo, race_date: raceDate, track: text(row, D.TRACK),
+          surface: text(row, D.SURFACE), distance_yards: num(row, D.DIST), age_sex: text(row, D.AGE_SEX), breed: text(row, D.BREED),
           race_type_code: text(row, D.RACE_TYPE), drf_class: text(row, D.CLASS),
           purse: num(row, D.PURSE), claim: num(row, D.CLAIM),
           post_time: (/\((\d{1,2}:\d{2})\)/.exec(get(row, D.POST_TIME)) || [])[1] || null,
@@ -279,7 +280,7 @@
       });
     }
     const list = [...races.values()].sort((a, b) => a.race_no - b.race_no);
-    return { race_date: raceDate, races: list };
+    return { race_date: raceDate, track, races: list };
   }
 
   // ------------------------------------------------------------ 2. runner inputs
@@ -353,7 +354,9 @@
       return r >= 1 - 0.10 && r <= 1 + 0.10;
     });
     f.speed_best_dist = maxNN(sp(same));
-    f.speed_best_fon = maxNN(sp(L.filter(l => l.track === 'FON')));
+    // "at this track" = the track in the file (FON at Fonner, so Fonner is unchanged)
+    const home = race.track || 'FON';
+    f.speed_best_fon = maxNN(sp(L.filter(l => l.track === home)));
     f.speed_vs_par = f.speed_best3 - f.par_speed;
     f.pace_e1_last = nz(firstNN(P, 'pace_2f'));
     f.pace_e1_avg3 = meanNN(p3.map(l => nz(l.pace_2f)));
@@ -371,7 +374,7 @@
     const pa = f.purse_avg3 === 0 ? NaN : f.purse_avg3;
     f.class_move = Math.log(f.purse / pa);
     const lastTrk = firstNN(L, 'track');
-    f.last_was_fon = lastTrk === null ? NaN : (lastTrk === 'FON' ? 1 : 0);
+    f.last_was_fon = lastTrk === null ? NaN : (lastTrk === home ? 1 : 0);
     f.last_dist_ratio = nz(firstNN(L, 'distance')) / f.distance_yards;
     f.field_size_last = nz(firstNN(L, 'field_size'));
 
@@ -718,12 +721,46 @@
     return out;
   }
 
+  // ------------------------------------------------------------ 6b. tracks other than Fonner
+  // Fonner's opening days come from model.json. Other meets are listed here.
+  const OTHER_MEETS = [
+    { track: 'EUR', name: 'Eureka Downs', short: 'Eureka', start: '2026-10-17', end: '2026-11-01' },
+  ];
+  function trackInfo(model, track, date) {
+    const y = String(date || '').slice(0, 4);
+    if (!track || track === 'FON')
+      return { track: 'FON', name: 'Fonner Park', short: 'Fonner',
+               meet_start: (model && model.meet_start && model.meet_start[y]) || (y + '-02-14') };
+    const d = String(date || '');
+    const inWin = m => d >= m.start && d <= m.end;
+    // match on the track code; an unknown code during a listed meet's dates is taken to be that meet
+    const m = OTHER_MEETS.find(x => x.track === track) ||
+              (OTHER_MEETS.some(x => x.track === track) ? null : OTHER_MEETS.find(inWin));
+    if (m) return { track, name: m.name, short: m.short, meet_start: m.start };
+    return { track, name: track, short: track, meet_start: null };   // unknown meet: days into meet left blank
+  }
+  // What the Fonner data covered: 4f to 1 1/8m, dirt, 3-year-olds and up (1,112 races, 2023-2026).
+  // Not a thoroughbred race (breed field is TB in every Fonner row), or under 4f: no numbers.
+  // The rest still get numbers, with a marker when they fall outside what Fonner had.
+  function raceScope(race) {
+    const y = race.distance_yards;
+    if (race.breed && race.breed.toUpperCase() !== 'TB') return { modeled: false, outside: true, why: 'breed' };
+    if (y !== null && y !== undefined && y < 880) return { modeled: false, outside: true, why: 'distance' };
+    const twoYO = (race.age_sex && race.age_sex.charAt(0) === 'A') ||
+                  (race.horses.length > 0 && race.horses.every(h => h.age !== null && h.age <= 2));
+    const why = [];
+    if (twoYO) why.push('2yo');
+    if (y !== null && y !== undefined && y > 1980) why.push('distance');
+    if (race.surface && race.surface.toUpperCase() !== 'D') why.push('surface');
+    return { modeled: true, outside: why.length > 0, why: why.join(',') };
+  }
+
   const api = {
     parseCSV, parseDRF, horseFeatures, fieldFeatures, raceFeatures, marketProbs, buildX,
     evalTree, foldRaw, predict, softmax, scoreRace, exactaCandidates, planA, buttonSplit,
     raceMoney, collapseInterests, interestOf, parseChart2, parseChart4, npsum, roundHalfEven,
     pyRepr, pdParse, csvTrip, pdSum, pdMean, pdStd,
-    normProgram, normName, BUTTONS,
+    normProgram, normName, BUTTONS, trackInfo, raceScope, OTHER_MEETS,
   };
 
   // ------------------------------------------------------------ 7. one race, end to end (live)
