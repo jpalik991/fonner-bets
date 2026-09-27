@@ -452,8 +452,7 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
   function renderBets(r, out) {
     const saved = S.saved[r.race_id];
     if (!out) {
-      const left = cells(r).filter(c => !F.parseOdds(rs(r).odds[c.k])).length;
-      $('bets').innerHTML = saved ? betCard(saved, true) : `<div class="hint">Enter live odds for every horse to see the bets${left ? ` (${left} left)` : ''}.</div>`;
+      $('bets').innerHTML = saved ? betCard(saved, true) : '';
       wireSave(r, null); return;
     }
     const bet = {
@@ -487,7 +486,7 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
       `<div class="wl"><span class="s num">$${w.stake}</span><span class="c num">${esc(w.a)}<span>/</span>${w.under.map(esc).join(', ')}</span><span class="x num">${w.under.length > 1 ? '$' + w.cost : ''}</span></div>`).join('');
     const same = saved && sameBet(saved, bet);
     let foot;
-    if (isSavedOnly) foot = `<div class="saved">Saved ${esc(bet.clock)}. Enter odds for every horse to update.</div>`;
+    if (isSavedOnly) foot = `<div class="saved">Saved ${esc(bet.clock)}</div>`;
     else foot = `<button class="box solid full" id="save-bet" ${same ? 'disabled' : ''}>${same ? 'Saved' : saved ? 'Save new bet' : 'Save bet'}</button>` +
       (saved ? `<div class="saved">${same ? 'Saved ' + esc(saved.clock) : 'Bet changed since you saved at ' + esc(saved.clock)}</div>` : '');
     return `<div class="betcard">
@@ -620,7 +619,13 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
     if (k === 'Close') { commit(0); closeSheet(); return; }
     if (k === 'Next') return commit(1);
     if (k === 'Prev') return commit(-1);
-    if (k === '⌫') typed = typed.slice(0, -1);
+    if (k === '⌫') {
+      if (typed) typed = typed.slice(0, -1);
+      else {
+        const r = race(), st = rs(r);
+        if (st.odds[sheetK] != null) { delete st.odds[sheetK]; recordHist(r); save(); render(); paint(); return; }
+      }
+    }
     else if (k === '–') { if (typed && !typed.includes('-')) typed += '-'; }
     else if (k === 'Scr') {
       const r = race(), st = rs(r), mem = r.horses.filter(h => F.interestOf(h.program) === sheetK).map(h => h.program);
