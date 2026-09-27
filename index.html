@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="apple-mobile-web-app-title" content="Fonner"/>
+<meta name="theme-color" content="#000000"/>
+<meta name="color-scheme" content="dark"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="apple-touch-icon" href="icon.png"/>
+<title>Fonner Bets</title>
+<style>
+@font-face{font-family:'Nunito Sans';font-weight:400;font-display:swap;src:url('fonts/nunito-sans-latin-400-normal.woff2') format('woff2');}
+@font-face{font-family:'Nunito Sans';font-weight:500;font-display:swap;src:url('fonts/nunito-sans-latin-500-normal.woff2') format('woff2');}
+@font-face{font-family:'Nunito Sans';font-weight:600;font-display:swap;src:url('fonts/nunito-sans-latin-600-normal.woff2') format('woff2');}
+@font-face{font-family:'Nunito Sans';font-weight:700;font-display:swap;src:url('fonts/nunito-sans-latin-700-normal.woff2') format('woff2');}
+@font-face{font-family:'Nunito Sans';font-weight:800;font-display:swap;src:url('fonts/nunito-sans-latin-800-normal.woff2') format('woff2');}
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --font:'Nunito Sans';
+  --bg:#000; --bar:#111113; --s1:#161618; --s2:#1e1e21; --s3:#2c2c30;
+  --line:#232327; --line2:#36363b; --soft:#1c1c1f;
+  --text:#fff; --text2:#a6a6ad; --text3:#6f6f77;
+  --good:#3ddc97; --bad:#ff6b6b;
+}
+html{-webkit-text-size-adjust:100%;background:var(--bg);}
+body{font-family:var(--font),-apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px;font-weight:400;line-height:1.3;min-height:100vh;-webkit-font-smoothing:antialiased;}
+.num{font-variant-numeric:tabular-nums;}
+button{font-family:inherit;color:inherit;}
+.wrap{max-width:560px;margin:0 auto;padding-bottom:calc(40px + env(safe-area-inset-bottom));}
+body.sheet-open .wrap{padding-bottom:560px;}
+
+/* the standard box: thin border, small radius (buttons, post time, tabs) */
+.box{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line2);border-radius:5px;background:transparent;font-weight:500;font-size:16px;padding:11px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;color:var(--text);text-decoration:none;}
+.box:active{background:var(--s2);}
+.box.solid{background:#fff;border-color:#fff;color:#000;font-weight:600;}
+.box.solid:active{background:#d8d8dc;}
+.box[disabled]{opacity:.4;pointer-events:none;}
+.box.full{width:100%;}
+.file-btn{position:relative;overflow:hidden;}
+.file-btn input{position:absolute;inset:0;opacity:0;font-size:100px;cursor:pointer;}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:10;background:var(--bar);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top);}
+.topline{display:flex;align-items:center;gap:10px;padding:12px 14px 10px 16px;}
+.track{font-size:22px;font-weight:600;letter-spacing:-.2px;}
+.date{font-size:15px;color:var(--text2);flex:1;}
+.gear{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;color:var(--text2);-webkit-tap-highlight-color:transparent;}
+.gear svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+/* race strip: one smooth bar, soft dividers, edges fade into the races off screen */
+.strip{margin:0 30px 12px;display:flex;overflow-x:auto;background:var(--soft);border-radius:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);}
+.strip::-webkit-scrollbar{display:none;}
+.rc{flex:0 0 auto;min-width:62px;padding:8px 10px 7px;text-align:center;cursor:pointer;position:relative;-webkit-tap-highlight-color:transparent;}
+.rc+.rc{box-shadow:inset 1px 0 0 rgba(255,255,255,.05);}
+.rc .n{font-size:16px;font-weight:500;color:var(--text2);}
+.rc .t{font-size:12px;color:var(--text3);margin-top:1px;}
+.rc.on{background:#34343a;}
+.rc.on .n{color:#fff;font-weight:600;} .rc.on .t{color:var(--text2);}
+.rc .dot{position:absolute;top:6px;right:7px;width:5px;height:5px;border-radius:50%;background:#fff;}
+
+/* race header */
+.rhead{display:flex;align-items:center;gap:12px;padding:14px 16px;}
+.post{border:1px solid var(--line2);border-radius:5px;padding:6px 10px;text-align:center;min-width:64px;}
+.post .l{font-size:12px;color:var(--text2);}
+.post .v{font-size:19px;font-weight:600;}
+.rhead .a{font-size:18px;font-weight:600;}
+.rhead .b{font-size:14px;color:var(--text2);margin-top:3px;}
+.sep{color:var(--text3);margin:0 5px;font-weight:300;}
+
+/* race / model tabs */
+.tabs{display:flex;gap:10px;padding:0 16px 12px;}
+.tabs .box{flex:1;padding:9px 0;font-size:15px;color:var(--text2);}
+.tabs .box.on{border-color:#e6e6ea;color:#fff;}
+
+/* runner rows */
+.runners{border-top:1px solid var(--line);}
+.runner{display:flex;align-items:stretch;border-bottom:1px solid var(--line);min-height:78px;background:var(--bg);}
+.runner.scr .who,.runner.scr .lines2{opacity:.35;}
+.runner.scr .rname{text-decoration:line-through;}
+.cloth{width:44px;flex-shrink:0;border-right:1px solid var(--line2);display:flex;align-items:flex-start;justify-content:center;padding-top:8px;font-weight:700;font-size:27px;}
+.runner.scr .cloth{opacity:.35;}
+.oddcol{width:78px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:10px 0 10px 10px;}
+.ob{position:relative;width:64px;height:48px;border-radius:4px;background:var(--s2);border:1px solid var(--line2);box-shadow:0 1px 3px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.ob.blank{background:var(--s1);border-style:dashed;box-shadow:none;}
+.ob.fav{border-color:#fff;}
+.ob.fav::before{content:'Fav';position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#fff;color:#000;font-size:11px;font-weight:600;line-height:14px;padding:0 6px;border-radius:3px;}
+.ob.scr{font-size:14px;font-weight:500;color:var(--bad);background:var(--s1);box-shadow:none;}
+.ob.active{outline:2px solid #fff;outline-offset:2px;}
+.who{flex:1;min-width:0;padding:11px 8px 10px 12px;display:flex;flex-direction:column;justify-content:center;}
+.rname{font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;}
+.rsub{font-size:14px;color:var(--text2);white-space:nowrap;overflow:hidden;margin-top:3px;}
+/* PL over ML: labels in one column, values in the next, both left-aligned so they stack exactly */
+.lines2{flex-shrink:0;display:grid;grid-template-columns:auto 42px;column-gap:6px;row-gap:5px;align-content:center;padding-right:12px;font-size:16px;color:var(--text2);}
+.lines2 b{color:var(--text);font-weight:500;}
+
+/* bet card */
+.betcard{margin:16px 12px 0;border:1px solid var(--line2);border-radius:6px;overflow:hidden;background:var(--s1);}
+.bc-head{padding:12px 14px 10px;border-bottom:1px solid var(--line);}
+.bc-head .t{font-size:18px;font-weight:600;}
+.bc-head .k{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:15px;}
+.bc-head .k .nm{font-weight:500;}
+.bc-head .k .d{color:var(--text2);font-size:14px;}
+.sq{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 4px;border-radius:3px;font-weight:700;font-size:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);}
+.tkh,.tk{display:grid;grid-template-columns:60px 1fr 70px;align-items:center;padding:0 14px;}
+.tkh{font-size:13px;color:var(--text3);padding-top:10px;padding-bottom:6px;}
+.tkh .r,.tk .r{text-align:right;}
+.tk{padding-top:9px;padding-bottom:9px;border-top:1px solid var(--line);}
+.tk .amt{font-size:18px;font-weight:600;}
+.tk .ex{display:flex;align-items:center;gap:6px;color:var(--text3);}
+.tk .pay{font-size:17px;font-weight:500;}
+.bc-total{display:flex;justify-content:space-between;padding:12px 14px;border-top:1px solid var(--line2);font-size:17px;font-weight:600;}
+.window{margin:0 14px 14px;border:1px solid var(--line2);border-radius:5px;padding:4px 0;}
+.wl{display:flex;align-items:baseline;gap:10px;padding:7px 12px;font-size:17px;}
+.wl .s{font-weight:600;min-width:36px;}
+.wl .c{flex:1;font-weight:500;}
+.wl .c span{color:var(--text3);margin:0 3px;}
+.wl .x{color:var(--text2);font-size:14px;}
+.save{padding:0 14px 14px;}
+.saved{font-size:13px;color:var(--text2);text-align:center;margin-top:8px;}
+.small-tag{display:inline-block;font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;border:1px solid var(--line2);color:var(--text2);margin-left:6px;vertical-align:middle;}
+.hint{margin:16px;color:var(--text3);font-size:14px;text-align:center;}
+
+/* model view */
+.mcard{margin:0 12px 12px;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--s1);}
+.mcard.scr{opacity:.35;}
+.mh{display:flex;align-items:stretch;border-bottom:1px solid var(--line);}
+.mh .cloth{width:42px;border-right:1px solid var(--line2);align-items:center;padding-top:0;font-size:22px;}
+.mh .nm{flex:1;padding:10px 12px;min-width:0;}
+.mh .a{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;}
+.mh .b{font-size:13px;color:var(--text2);margin-top:2px;}
+.pl{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);}
+.pl>div{padding:9px 12px;}
+.pl>div+div{border-left:1px solid var(--line);}
+.pl .l{font-size:12px;color:var(--text3);}
+.pl .v{font-size:17px;font-weight:600;margin-top:2px;}
+.pl .v small{font-size:13px;color:var(--text2);font-weight:400;}
+.st{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:14px;}
+.st:last-child{border-bottom:none;}
+.st .l{color:var(--text2);flex-shrink:0;}
+.st .v{text-align:right;}
+.st .v small{color:var(--text3);}
+.st .v .sub{display:block;margin-top:3px;}
+
+/* menu */
+.menu{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;display:none;padding-top:env(safe-area-inset-top);}
+.menu.on{display:block;}
+.menu-in{max-width:560px;margin:0 auto;padding-bottom:40px;}
+.mtop{display:flex;align-items:center;padding:12px 8px 8px 16px;}
+.mtop .t{flex:1;font-size:22px;font-weight:600;}
+.sec{margin:12px;border:1px solid var(--line);border-radius:6px;padding:14px;background:var(--s1);}
+.sec h3{font-size:17px;font-weight:600;margin-bottom:6px;}
+.sec p{font-size:14px;color:var(--text2);}
+.sec .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);}
+.li:first-child{border-top:none;}
+.li .rn{min-width:40px;font-weight:600;}
+.li .tx{flex:1;min-width:0;font-size:14px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.li .amt{font-weight:600;}
+.tot{display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--line2);font-weight:600;}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;}
+.statgrid>div{border:1px solid var(--line2);border-radius:5px;padding:10px;}
+.statgrid .v{font-size:18px;font-weight:600;}
+.statgrid .l{font-size:12px;color:var(--text2);}
+table.sc{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;}
+table.sc th{color:var(--text3);font-weight:500;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line);}
+table.sc td{text-align:right;padding:8px 4px;border-bottom:1px solid var(--line);}
+table.sc th:first-child,table.sc td:first-child{text-align:left;}
+.pos{color:var(--good);} .neg{color:var(--bad);}
+.note{font-size:14px;padding:10px 12px;border-radius:5px;margin-top:10px;border:1px solid var(--line2);color:var(--text2);}
+.note.bad{color:var(--bad);border-color:rgba(255,107,107,.4);}
+.note.good{color:var(--good);border-color:rgba(61,220,151,.4);}
+.nocard{padding:60px 24px;text-align:center;color:var(--text2);}
+.nocard .big{font-size:19px;font-weight:600;color:var(--text);margin-bottom:8px;}
+
+/* odds keypad */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--bar);border-top:1px solid var(--line2);box-shadow:0 -10px 30px rgba(0,0,0,.6);padding:10px 12px calc(12px + env(safe-area-inset-bottom));transform:translateY(110%);visibility:hidden;transition:transform .18s ease,visibility 0s linear .18s;}
+.sheet.on{transform:translateY(0);visibility:visible;transition:transform .18s ease,visibility 0s;}
+.sheet-in{max-width:560px;margin:0 auto;}
+.sh{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.sh .who2{flex:1;min-width:0;}
+.sh .who2 .a{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;}
+.sh .who2 .b{font-size:13px;color:var(--text2);}
+.typed{min-width:92px;text-align:center;font-size:24px;font-weight:600;padding:6px 8px;border-radius:5px;border:1px solid var(--line2);}
+.chips{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:8px;}
+.chip{padding:10px 0;text-align:center;border-radius:4px;background:var(--s2);border:1px solid var(--line2);font-size:15px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+.chip:active{background:var(--s3);}
+.keys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.key{padding:13px 0;text-align:center;border-radius:5px;background:var(--s1);border:1px solid var(--line);font-size:21px;font-weight:400;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+.key:active{background:var(--s3);}
+.key.w{background:#fff;color:#000;border-color:#fff;font-size:17px;font-weight:600;}
+.key.soft{font-size:16px;color:var(--text2);}
+.key.red{font-size:16px;color:var(--bad);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="topline"><div class="track">Fonner Park</div><div class="date" id="date"></div>
+      <button class="gear" id="open-menu" aria-label="Menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+    <div class="strip" id="strip"></div>
+  </div>
+
+  <div id="empty" class="nocard"><div class="big">No card loaded</div>Tap the gear and load the day's DRF file.</div>
+  <div id="race" style="display:none">
+    <div class="rhead">
+      <div class="post"><div class="l">Post</div><div class="v num" id="post">–</div></div>
+      <div><div class="a" id="ra"></div><div class="b" id="rb"></div></div>
+    </div>
+    <div class="tabs"><button class="box on" data-tab="race">Race</button><button class="box" data-tab="model">Model</button></div>
+    <div id="t-race">
+      <div class="runners" id="runners"></div>
+      <div id="bets"></div>
+    </div>
+    <div id="t-model" style="display:none"></div>
+  </div>
+</div>
+
+<!-- menu (gear) -->
+<div class="menu" id="menu"><div class="menu-in">
+  <div class="mtop"><div class="t">Menu</div><button class="gear" id="close-menu" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sec">
+    <h3>Card</h3>
+    <p id="card-status">No card loaded.</p>
+    <div class="row"><label class="box solid file-btn"><span id="drf-label">Load DRF file</span><input type="file" id="drf-input"/></label></div>
+    <div id="load-msg"></div>
+  </div>
+  <div class="sec">
+    <h3 id="bets-title">Today's bets</h3>
+    <div id="bets-list"><p>No bets saved yet.</p></div>
+    <div class="row"><button class="box" id="download">Download today's bets</button></div>
+    <div id="dl-msg"></div>
+  </div>
+  <div class="sec">
+    <h3>Results (next day)</h3>
+    <p>Pick the chart files for the day: the .2 and .4, all six, or the zip.</p>
+    <div class="row"><label class="box file-btn">Pick chart files<input type="file" id="chart-input" multiple/></label></div>
+    <div id="score-out"></div>
+  </div>
+  <div class="sec">
+    <h3>Start over</h3>
+    <p>Clears the card and the saved bets from this phone. Download today's bets first.</p>
+    <div class="row"><button class="box" id="clear-all">Clear card and bets</button></div>
+    <p id="version" style="margin-top:12px;font-size:12px;color:var(--text3)"></p>
+  </div>
+</div></div>
+
+<!-- odds keypad -->
+<div class="sheet" id="sheet"><div class="sheet-in">
+  <div class="sh"><span class="sq" id="sh-sq">1</span><div class="who2"><div class="a" id="sh-name"></div><div class="b" id="sh-ml"></div></div><div class="typed num" id="sh-typed">–</div></div>
+  <div class="chips" id="chips"></div>
+  <div class="keys" id="keys"></div>
+</div></div>
+
+<script src="fonner.js"></script>
+<script>
+(function () {
+  'use strict';
+  const F = window.Fonner;
+  const STORE = 'fonner-bets-v3';
+  let MODEL = null, CARD = null;
+  // races[race_id] = { scr: [], odds: {interest: '5-2'}, hist: [{t, odds}] } ; saved[race_id] = the bet you saved
+  let S = { drfText: null, drfName: null, races: {}, saved: {}, scored: null, cur: 0 };
+  let tab = 'race', sheetIdx = -1, typed = '';
+  const CACHE = {};
+
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* storage blocked */ } }
+  function load() { try { const t = localStorage.getItem(STORE); if (t) S = Object.assign(S, JSON.parse(t)); } catch (e) { /* start clean */ } }
+
+  // ---------------------------------------------------------------- formatting
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const CLOTH = { 1: ['#d0021b', '#fff'], 2: ['#f4f4f4', '#111'], 3: ['#1b5ec7', '#fff'], 4: ['#f5d90a', '#111'], 5: ['#1a8a3a', '#fff'],
+    6: ['#050505', '#f5d90a'], 7: ['#f58220', '#111'], 8: ['#f7a1c4', '#111'], 9: ['#36c3c6', '#111'], 10: ['#6b2c91', '#fff'],
+    11: ['#9a9a9a', '#d0021b'], 12: ['#9fd13b', '#111'], 13: ['#6b4226', '#fff'], 14: ['#7b1f2b', '#f5d90a'], 15: ['#c3b091', '#111'], 16: ['#9bc4e2', '#d0021b'] };
+  const cc = p => CLOTH[parseInt(p, 10)] || ['#555', '#fff'];
+  const sq = p => { const c = cc(p); return `<span class="sq" style="background:${c[0]};color:${c[1]}">${esc(p)}</span>`; };
+  const money = x => (x < 0 ? '−$' : '$') + Math.abs(Math.round(x)).toLocaleString();
+  const pct = (p, d) => (p * 100).toFixed(d == null ? 1 : d) + '%';
+  const SEP = '<span class="sep">|</span>';
+  const ROMAN = new Set(['II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'XI', 'XII']);
+  function word(w) {
+    if (!w || ROMAN.has(w)) return w;
+    if (/^\(.*\)$/.test(w)) return w.toUpperCase();
+    return w.split('-').map(part => {
+      if (/^MC[A-Z]/.test(part)) return 'Mc' + part.charAt(2) + part.slice(3).toLowerCase();
+      if (/^O'[A-Z]/.test(part)) return "O'" + part.charAt(2) + part.slice(3).toLowerCase();
+      return part.charAt(0) + part.slice(1).toLowerCase();
+    }).join('-');
+  }
+  const horseName = n => String(n || '').trim().split(/\s+/).map(word).join(' ');
+  function person(n) {
+    if (!n) return '';
+    const t = n.trim().split(/\s+/);
+    let suf = '';
+    if (t.length > 2 && /^(JR|SR|II|III)$/.test(t[t.length - 1])) { const x = t.pop(); suf = x === 'JR' ? ' Jr.' : x === 'SR' ? ' Sr.' : ' ' + x; }
+    if (t.length === 1) return word(t[0]);
+    return t.slice(1).map(w => w.length === 1 ? w + '.' : word(w)).join(' ') + ' ' + word(t[0]) + suf;
+  }
+  function dist(y) {
+    if (!y) return '';
+    if (y < 1760) { const f = y / 220, w = Math.floor(f + 1e-9); return (Math.abs(f - w - 0.5) < 0.01 ? w + '½' : String(Math.round(f * 10) / 10)) + 'f'; }
+    if (y === 1760) return '1m';
+    const ex = y - 1760;
+    if (ex === 70 || ex === 40) return `1m ${ex}y`;
+    if (ex % 110 === 0) { let n = ex / 110, d = 16; while (n % 2 === 0 && d > 1) { n /= 2; d /= 2; } return `1 ${n}/${d}m`; }
+    return (y / 1760).toFixed(2) + 'm';
+  }
+  function raceType(r) {
+    const cl = r.claim || +((/(\d{3,6})/.exec(r.drf_class || '') || [])[1] || 0);
+    const c = cl ? '$' + cl.toLocaleString() + ' ' : '';
+    switch (r.race_type_code) {
+      case 'A': return 'Allowance';
+      case 'AO': case 'CO': return c + 'optional claiming';
+      case 'C': return c + 'claiming';
+      case 'M': return c + 'maiden claiming';
+      case 'S': return 'Maiden special weight';
+      case 'R': return c + 'starter allowance';
+      case 'N': return 'Stakes';
+      case 'G1': case 'G2': case 'G3': return 'Grade ' + r.race_type_code.slice(1) + ' stakes';
+      default: return r.drf_class || '';
+    }
+  }
+  const SEX = { C: 'colt', F: 'filly', G: 'gelding', H: 'horse', M: 'mare', R: 'ridgling', g: 'gelding' };
+  const LADDER = [[1 / 9, '1-9'], [1 / 5, '1-5'], [2 / 5, '2-5'], [1 / 2, '1-2'], [3 / 5, '3-5'], [4 / 5, '4-5'], [1, '1-1'], [6 / 5, '6-5'],
+    [7 / 5, '7-5'], [3 / 2, '3-2'], [8 / 5, '8-5'], [9 / 5, '9-5'], [2, '2-1'], [5 / 2, '5-2'], [3, '3-1'], [7 / 2, '7-2'], [4, '4-1'], [9 / 2, '9-2']];
+  for (let i = 5; i <= 99; i++) LADDER.push([i, i + '-1']);
+  function step(o) {   // nearest board step, written like the ML (12, 7-2)
+    if (!isFinite(o) || o >= 99) return '99';
+    let b = LADDER[0];
+    for (const x of LADDER) if (Math.abs(x[0] - o) < Math.abs(b[0] - o)) b = x;
+    return b[1].replace(/-1$/, '');
+  }
+  const mlText = v => v == null ? '–' : F.fmtOdds(v).replace(/-1$/, '');
+  const exact = o => !isFinite(o) ? '–' : (o < 10 ? o.toFixed(2) : o.toFixed(1)) + '-1';
+  function lengths(b) {
+    if (b == null) return '';
+    const w = Math.floor(b), f = b - w;
+    const fr = f < 0.125 ? '' : f < 0.375 ? '¼' : f < 0.625 ? '½' : f < 0.875 ? '¾' : '';
+    return ((f >= 0.875 ? w + 1 : w) || '') + fr || 'nose';
+  }
+  const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : (n % 10 < 4 ? n % 10 : 0)] || 'th');
+  const rec = r => r && r.starts != null ? `${r.starts}: ${r.wins || 0}-${r.places || 0}-${r.shows || 0}` : '–';
+  const wps = r => r && r.starts ? `${Math.round(100 * (r.wins || 0) / r.starts)}% / ${Math.round(100 * (r.places || 0) / r.starts)}% / ${Math.round(100 * (r.shows || 0) / r.starts)}%` : '–';
+  const niceDate = (iso, o) => new Date(iso + 'T12:00:00').toLocaleDateString([], o || { month: 'short', day: 'numeric' });
+  const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  // long names: shrink the font only as much as needed to fit on one line
+  function fit(el, min) {
+    el.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth + 0.5 && size > min) { size -= 0.5; el.style.fontSize = size + 'px'; }
+  }
+
+  // ---------------------------------------------------------------- race state
+  const race = () => CARD ? CARD.races[S.cur] : null;
+  function rs(r) { if (!S.races[r.race_id]) S.races[r.race_id] = { scr: [], odds: {}, hist: [] }; const x = S.races[r.race_id]; x.hist = x.hist || []; return x; }
+  const meetFor = d => (MODEL.meet_start && MODEL.meet_start[d.slice(0, 4)]) || (d.slice(0, 4) + '-02-14');
+  function cells(r) {   // one odds box per betting interest still running
+    const scr = new Set(rs(r).scr), seen = new Set(), out = [];
+    r.horses.forEach(h => {
+      const k = F.interestOf(h.program);
+      if (seen.has(k)) return;
+      if (r.horses.filter(x => F.interestOf(x.program) === k).every(m => scr.has(m.program))) return;
+      seen.add(k); out.push({ k, h });
+    });
+    return out;
+  }
+  function drf(r) {
+    const key = r.race_id + '|' + [...rs(r).scr].sort().join(',');
+    if (!CACHE[key]) CACHE[key] = F.drfLineRace(MODEL, r, new Set(rs(r).scr), meetFor(r.race_date));
+    return CACHE[key];
+  }
+  // the betting model, once every running horse has odds (recomputed on every change; a few ms)
+  function live(r) {
+    const st = rs(r), cs = cells(r);
+    if (cs.length < 2 || cs.some(c => !F.parseOdds(st.odds[c.k]))) return null;
+    const key = r.race_id + '|' + [...st.scr].sort().join(',') + '|' + cs.map(c => c.k + '=' + st.odds[c.k]).join(',');
+    if (!CACHE[key]) {
+      const out = F.runRace(MODEL, CARD.races.length, r, new Set(st.scr), k => F.parseOdds(st.odds[k]), meetFor(r.race_date));
+      CACHE[key] = out.error ? null : out;
+    }
+    return CACHE[key];
+  }
+  function sameBet(a, b) { return a && b && a.tickets.map(t => t.combo + ':' + t.stake).join() === b.tickets.map(t => t.combo + ':' + t.stake).join(); }
+
+  // ---------------------------------------------------------------- top + strip
+  function renderTop() {
+    $('date').textContent = CARD ? niceDate(CARD.race_date, { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+    if (!CARD) { $('strip').style.display = 'none'; return; }
+    $('strip').style.display = '';
+    $('strip').innerHTML = CARD.races.map((r, i) =>
+      `<div class="rc ${i === S.cur ? 'on' : ''}" data-i="${i}">${S.saved[r.race_id] ? '<span class="dot"></span>' : ''}<div class="n">R${r.race_no}</div><div class="t num">${esc(r.post_time || '')}</div></div>`).join('');
+    document.querySelectorAll('.rc').forEach(el => el.addEventListener('click', () => { S.cur = +el.dataset.i; save(); closeSheet(); render(); window.scrollTo(0, 0); }));
+    const on = document.querySelector('.rc.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+  document.querySelectorAll('.tabs .box').forEach(b => b.addEventListener('click', () => {
+    tab = b.dataset.tab; document.querySelectorAll('.tabs .box').forEach(x => x.classList.toggle('on', x === b)); closeSheet(); render();
+  }));
+
+  // ---------------------------------------------------------------- race view
+  function render() {
+    renderTop();
+    if (!CARD) { $('empty').style.display = ''; $('race').style.display = 'none'; return; }
+    $('empty').style.display = 'none'; $('race').style.display = '';
+    const r = race(), st = rs(r), scr = new Set(st.scr);
+    const n = r.horses.filter(h => !scr.has(h.program)).length;
+    $('post').textContent = r.post_time || '–';
+    $('ra').innerHTML = `Race ${r.race_no}${SEP}${dist(r.distance_yards)}${SEP}${n} runners`;
+    $('rb').innerHTML = `${esc(raceType(r))}${SEP}$${(r.purse || 0).toLocaleString()} purse`;
+    $('t-race').style.display = tab === 'race' ? '' : 'none';
+    $('t-model').style.display = tab === 'model' ? '' : 'none';
+    if (tab === 'model') return renderModel();
+
+    const out = live(r), d = drf(r);
+    const pDrf = new Map(d.runners.map((h, i) => [h.program, d.p[i]]));
+    const pLive = out ? new Map(out.interests.map(x => [x.program, x.p])) : null;
+    const first = new Set(cells(r).map(c => c.h.program));
+    // favourite = lowest odds entered among running horses
+    let fav = null, favO = Infinity;
+    cells(r).forEach(c => { const o = F.parseOdds(st.odds[c.k]); if (o != null && o < favO) { favO = o; fav = c.k; } });
+    $('runners').innerHTML = r.horses.map(h => {
+      const k = F.interestOf(h.program), s = scr.has(h.program), c = cc(h.program);
+      let pl = '–';
+      if (!s) {
+        if (pLive) pl = first.has(h.program) && pLive.has(k) ? step(F.fairOdds(pLive.get(k))) : '';
+        else if (pDrf.has(h.program)) pl = step(F.fairOdds(pDrf.get(h.program)));
+      }
+      const o = st.odds[k];
+      let box;
+      if (s) box = `<div class="ob scr" data-odds="${esc(k)}" data-scrd="1">SCR</div>`;
+      else if (!first.has(h.program)) box = `<div class="ob blank" style="visibility:hidden"></div>`;
+      else box = `<div class="ob ${o ? '' : 'blank'} ${k === fav ? 'fav' : ''} num" data-odds="${esc(k)}">${o ? esc(o.replace(/-1$/, '')) : ''}</div>`;
+      return `<div class="runner ${s ? 'scr' : ''}">
+        <div class="cloth" style="background:${c[0]};color:${c[1]}">${esc(h.program)}</div>
+        <div class="oddcol">${box}</div>
+        <div class="who"><div class="rname">${esc(horseName(h.name))}</div><div class="rsub">${esc(person(h.jockey))}${h.weight ? ' | ' + h.weight + ' lb' : ''}</div><div class="rsub">${esc(person(h.trainer))}</div></div>
+        <div class="lines2 num"><span>PL</span><b>${pl}</b><span>ML</span><b>${mlText(h.morning_line)}</b></div>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('.runners .rname').forEach(el => fit(el, 13));
+    document.querySelectorAll('.runners .rsub').forEach(el => fit(el, 11));
+    document.querySelectorAll('.ob[data-odds]').forEach(b => b.addEventListener('click', () => openSheet(b.dataset.odds)));
+    renderBets(r, out);
+  }
+
+  function renderBets(r, out) {
+    const saved = S.saved[r.race_id];
+    if (!out) {
+      const left = cells(r).filter(c => !F.parseOdds(rs(r).odds[c.k])).length;
+      $('bets').innerHTML = saved ? betCard(saved, true) : `<div class="hint">Enter live odds for every horse to see the bets${left ? ` (${left} left)` : ''}.</div>`;
+      wireSave(r, null); return;
+    }
+    const bet = {
+      key: out.plan.key, total: out.plan.total, money: out.money,
+      tickets: out.plan.tickets.map(t => ({ combo: t.combo, stake: t.stake, est: t.est, gap: t.gap, flip: t.flip })),
+      interests: out.interests.map(x => ({ program: x.program, name: x.name, odds: x.odds, p: x.p, board: x.board })),
+      n_runners: out.runners.length,
+    };
+    $('bets').innerHTML = betCard(bet, false, saved);
+    wireSave(r, bet, out);
+  }
+
+  // group tickets the way they're punched: same first horse and amount become one key ticket
+  function windowLines(tickets) {
+    const groups = new Map();
+    tickets.forEach(t => {
+      const [a, b] = t.combo.split('-'); const k = a + '|' + t.stake;
+      if (!groups.has(k)) groups.set(k, { a, stake: t.stake, under: [] });
+      groups.get(k).under.push(b);
+    });
+    return [...groups.values()].sort((x, y) => y.stake - x.stake || x.under.length - y.under.length)
+      .map(g => ({ stake: g.stake, a: g.a, under: g.under.sort((p, q) => parseInt(p, 10) - parseInt(q, 10)), cost: g.stake * g.under.length }));
+  }
+  function betCard(bet, isSavedOnly, saved) {
+    const key = bet.interests.find(x => x.program === bet.key) || {};
+    const rows = bet.tickets.map(t => {
+      const [a, b] = t.combo.split('-');
+      return `<div class="tk"><div class="amt num">$${t.stake}</div><div class="ex">${sq(a)}<span>–</span>${sq(b)}</div><div class="pay r num">$${Math.round(t.est)}</div></div>`;
+    }).join('');
+    const win = windowLines(bet.tickets).map(w =>
+      `<div class="wl"><span class="s num">$${w.stake}</span><span class="c num">${esc(w.a)}<span>/</span>${w.under.map(esc).join(', ')}</span><span class="x num">${w.under.length > 1 ? '$' + w.cost : ''}</span></div>`).join('');
+    const same = saved && sameBet(saved, bet);
+    let foot;
+    if (isSavedOnly) foot = `<div class="saved">Saved ${esc(bet.clock)}. Enter odds for every horse to update.</div>`;
+    else foot = `<button class="box solid full" id="save-bet" ${same ? 'disabled' : ''}>${same ? 'Saved' : saved ? 'Save new bet' : 'Save bet'}</button>` +
+      (saved ? `<div class="saved">${same ? 'Saved ' + esc(saved.clock) : 'Bet changed since you saved at ' + esc(saved.clock)}</div>` : '');
+    return `<div class="betcard">
+      <div class="bc-head"><div class="t">Race ${race().race_no} bets${bet.n_runners < 5 ? '<span class="small-tag">small field</span>' : ''}</div>
+        <div class="k">${sq(bet.key)}<span class="nm">${esc(horseName(key.name))}</span><span class="d num">${F.fmtOdds(key.odds).replace(/-1$/, '')} | model ${pct(key.p, 0)} | board ${pct(key.board, 0)}</span></div></div>
+      <div class="tkh"><div>Bet</div><div>Exacta</div><div class="r">Pays</div></div>
+      ${rows}
+      <div class="bc-total"><span>Race total</span><span class="num">$${bet.total}</span></div>
+      <div class="window">${win}</div>
+      <div class="save">${foot}</div>
+    </div>`;
+  }
+  function wireSave(r, bet) {
+    const b = $('save-bet'); if (!b || !bet) return;
+    b.addEventListener('click', () => {
+      const st = rs(r), d = drf(r);
+      S.saved[r.race_id] = Object.assign({}, bet, {
+        race_id: r.race_id, race_no: r.race_no, date: r.race_date, post_time: r.post_time,
+        saved_at: new Date().toISOString(), clock: clock(), scratched: [...st.scr], odds_text: Object.assign({}, st.odds),
+        window: windowLines(bet.tickets), drf_line: d.runners.map((h, i) => ({ program: h.program, p: d.p[i] })),
+        odds_history: st.hist.slice(), model: MODEL.version,
+      });
+      save(); render();
+    });
+  }
+
+  // ---------------------------------------------------------------- model view
+  function renderModel() {
+    const r = race(), scr = new Set(rs(r).scr), out = live(r), d = drf(r);
+    const pDrf = new Map(d.runners.map((h, i) => [h.program, d.p[i]]));
+    const fD = new Map(d.runners.map((h, i) => [h.program, d.feats ? d.feats[i] : null]));
+    const iL = out ? new Map(out.interests.map(x => [x.program, x])) : null;
+    const order = [...r.horses].sort((a, b) => scr.has(a.program) - scr.has(b.program));
+    const avg = v => (v == null || !isFinite(v)) ? '–' : Math.round(v);
+    $('t-model').innerHTML = order.map(h => {
+      const s = scr.has(h.program), c = cc(h.program), k = F.interestOf(h.program), f = fD.get(h.program) || {};
+      const pd = pDrf.get(h.program), il = iL && iL.get(k);
+      const L = h.lines, l0 = L[0];
+      const figs = L.slice(0, 3).map(l => l.speed != null ? l.speed : '–').join(' | ') || '–';
+      const last = l0 ? `${niceDate(l0.date)} | ${esc(l0.track || '')} | ${l0.dnf ? 'did not finish' : l0.finish ? ord(l0.finish) + (l0.finish === 1 ? '' : ' by ' + lengths(l0.beaten)) : '–'}` : 'First start';
+      const cm = f.class_move;
+      const cls = (cm == null || !isFinite(cm)) ? '–' : Math.abs(cm) < 0.05 ? 'About the same' : (cm < 0 ? 'Dropping ' : 'Rising ') + Math.round(Math.abs(Math.exp(cm) - 1) * 100) + '%';
+      const jt = h.jt365 && h.jt365.starts ? `${h.jt365.starts} starts | ${Math.round(100 * (h.jt365.wins || 0) / h.jt365.starts)}% win${h.jt365_roi != null ? '<span class="sub">ROI ' + (h.jt365_roi >= 0 ? '+' : '') + h.jt365_roi.toFixed(2) + '</span>' : ''}` : '–';
+      // best early (2f call) and late pace figures over the last 3 races with pace figures
+      const pl3 = L.filter(l => !(l.distance != null && [550, 870, 1000].includes(Math.round(l.distance)))).slice(0, 3);
+      const best = key => { const v = pl3.map(l => l[key]).filter(x => x != null); return v.length ? Math.max(...v) : '–'; };
+      const style = h.run_style ? (h.run_style === 'EP' ? 'E/P' : h.run_style) : '–';
+      const yr = x => x && x.year ? `<div class="st"><span class="l">${x.year}</span><span class="v num">${rec(x)}${x.earnings ? ' | ' + money(x.earnings) : ''}</span></div>` : '';
+      const of = x => x && x.starts ? ` <small>of ${x.starts}</small>` : '';
+      return `<div class="mcard ${s ? 'scr' : ''}">
+        <div class="mh"><div class="cloth" style="background:${c[0]};color:${c[1]}">${esc(h.program)}</div>
+          <div class="nm"><div class="a">${esc(horseName(h.name))}${s ? ' | scratched' : ''}</div><div class="b">${h.age != null ? h.age + 'yo ' : ''}${SEX[h.sex] || ''} | ML ${mlText(h.morning_line)}${il ? ' | board ' + F.fmtOdds(il.odds).replace(/-1$/, '') : ''}</div></div></div>
+        <div class="pl">
+          <div><div class="l">DRF line</div><div class="v num">${s || pd == null ? '–' : exact(F.fairOdds(pd)) + ' <small>' + pct(pd) + '</small>'}</div></div>
+          <div><div class="l">Model line</div><div class="v num">${il ? exact(F.fairOdds(il.p)) + ' <small>' + pct(il.p) + '</small>' : '<small>when all odds are in</small>'}</div></div>
+        </div>
+        <div class="st"><span class="l">Jockey</span><span class="v">${esc(person(h.jockey))}<span class="sub num">${wps(h.jky_meet)}${of(h.jky_meet)}</span></span></div>
+        <div class="st"><span class="l">Trainer</span><span class="v">${esc(person(h.trainer))}<span class="sub num">${wps(h.trn_meet)}${of(h.trn_meet)}</span></span></div>
+        <div class="st"><span class="l">Jockey + trainer, last year</span><span class="v num">${jt}</span></div>
+        <div class="st"><span class="l">Lifetime</span><span class="v num">${rec(h.life)}${h.life && h.life.earnings ? ' | ' + money(h.life.earnings) : ''}</span></div>
+        ${yr(h.ytd)}${yr(h.prior)}
+        <div class="st"><span class="l">At Fonner</span><span class="v num">${rec(h.trk)}</span></div>
+        <div class="st"><span class="l">At this distance</span><span class="v num">${rec(h.dist)}</span></div>
+        <div class="st"><span class="l">Speed, last 3</span><span class="v num">${figs}</span></div>
+        <div class="st"><span class="l">Best speed at this distance</span><span class="v num">${avg(f.speed_best_dist)}</span></div>
+        <div class="st"><span class="l">Run style | best E/L</span><span class="v num">${style} | ${best('pace_2f')} / ${best('late')}</span></div>
+        <div class="st"><span class="l">Last race</span><span class="v">${last}</span></div>
+        <div class="st"><span class="l">Days since last race</span><span class="v num">${h.days_since != null ? h.days_since : '–'}</span></div>
+        <div class="st"><span class="l">Class vs last 3 races</span><span class="v">${cls}</span></div>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('.mh .a').forEach(el => fit(el, 13));
+  }
+
+  // ---------------------------------------------------------------- odds keypad
+  const CHIPS = ['1-9', '1-5', '2-5', '1-2', '3-5', '4-5', '1-1', '6-5', '7-5', '3-2', '8-5', '9-5', '2-1', '5-2', '3-1', '7-2', '4-1', '9-2', '5-1', '6-1', '8-1'];
+  $('chips').innerHTML = CHIPS.map(c => `<div class="chip num" data-chip="${c}">${c.replace(/-1$/, '')}</div>`).join('');
+  $('keys').innerHTML = ['1', '2', '3', '⌫', '4', '5', '6', '–', '7', '8', '9', 'Scr', 'Close', '0', 'Prev', 'Next'].map(k =>
+    `<div class="key ${k === 'Next' ? 'w' : ''} ${k === 'Close' || k === 'Prev' ? 'soft' : ''} ${k === 'Scr' ? 'red' : ''}" data-key="${k}">${k}</div>`).join('');
+  document.querySelectorAll('[data-chip]').forEach(c => c.addEventListener('click', () => { typed = c.dataset.chip; commit(1); }));
+  document.querySelectorAll('[data-key]').forEach(k => k.addEventListener('click', () => press(k.dataset.key)));
+
+  let sheetK = null;           // interest the keypad is on (can be a scratched one, to undo)
+  function openSheet(k) { sheetK = k; typed = ''; paint(); $('sheet').classList.add('on'); document.body.classList.add('sheet-open'); keepVisible(); }
+  function closeSheet() { $('sheet').classList.remove('on'); document.body.classList.remove('sheet-open'); sheetK = null; document.querySelectorAll('.ob.active').forEach(x => x.classList.remove('active')); }
+  function isScr(k) { const r = race(); return r.horses.filter(h => F.interestOf(h.program) === k).every(h => rs(r).scr.includes(h.program)); }
+  function paint() {
+    const r = race(), h = r.horses.find(x => F.interestOf(x.program) === sheetK); if (!h) return closeSheet();
+    const st = rs(r), c = cc(sheetK), scrd = isScr(sheetK);
+    $('sh-sq').style.background = c[0]; $('sh-sq').style.color = c[1]; $('sh-sq').textContent = sheetK;
+    $('sh-name').textContent = horseName(h.name); fit($('sh-name'), 13);
+    $('sh-ml').textContent = scrd ? 'Scratched' : 'ML ' + mlText(h.morning_line);
+    $('sh-typed').textContent = typed || (scrd ? 'SCR' : (st.odds[sheetK] || '–').replace(/-1$/, ''));
+    document.querySelector('.key[data-key="Scr"]').textContent = scrd ? 'Undo' : 'Scr';
+    document.querySelectorAll('.ob').forEach(x => x.classList.toggle('active', x.dataset.odds === sheetK));
+    keepVisible();
+  }
+  function keepVisible() {
+    if (!sheetK) return;
+    const el = document.querySelector(`.ob[data-odds="${CSS.escape(sheetK)}"]`); if (!el) return;
+    const row = el.closest('.runner') || el, r = row.getBoundingClientRect();
+    const sheetTop = window.innerHeight - $('sheet').offsetHeight, top = document.querySelector('.top').offsetHeight;
+    const want = sheetTop - r.height - 12;
+    if (r.top > want || r.top < top) window.scrollBy({ top: r.top - Math.max(want, top + 8), behavior: 'smooth' });
+  }
+  function recordHist(r) { const st = rs(r); st.hist.push({ t: new Date().toISOString(), odds: Object.assign({}, st.odds), scr: [...st.scr] }); }
+  function move(step) {
+    const r = race(), cs = cells(r);
+    let i = cs.findIndex(c => c.k === sheetK);
+    if (i < 0) { i = r.horses.map(h => F.interestOf(h.program)).indexOf(sheetK); i = cs.findIndex(c => r.horses.map(h => F.interestOf(h.program)).indexOf(c.k) > i) - (step > 0 ? 1 : 0); }
+    const next = i + step;
+    render();
+    if (step > 0 && next >= cs.length) { closeSheet(); return; }
+    sheetK = cs[Math.max(0, Math.min(cs.length - 1, next))].k; typed = ''; paint();
+    $('sheet').classList.add('on'); document.body.classList.add('sheet-open');
+  }
+  function commit(stepN) {
+    const r = race(), st = rs(r);
+    if (typed && !isScr(sheetK)) {
+      const t = /^\d+$/.test(typed) ? typed + '-1' : typed;
+      if (!F.parseOdds(t)) { $('sh-typed').textContent = '?'; typed = ''; return; }
+      if (st.odds[sheetK] !== t) { st.odds[sheetK] = t; recordHist(r); }
+      save();
+    }
+    typed = '';
+    if (stepN === 0) { render(); return; }
+    move(stepN);
+  }
+  function press(k) {
+    if (k === 'Close') { commit(0); closeSheet(); return; }
+    if (k === 'Next') return commit(1);
+    if (k === 'Prev') return commit(-1);
+    if (k === '⌫') typed = typed.slice(0, -1);
+    else if (k === '–') { if (typed && !typed.includes('-')) typed += '-'; }
+    else if (k === 'Scr') {
+      const r = race(), st = rs(r), mem = r.horses.filter(h => F.interestOf(h.program) === sheetK).map(h => h.program);
+      if (isScr(sheetK)) st.scr = st.scr.filter(p => !mem.includes(p));
+      else { mem.forEach(p => { if (!st.scr.includes(p)) st.scr.push(p); }); delete st.odds[sheetK]; }
+      recordHist(r); save(); typed = ''; render(); paint(); return;
+    }
+    else if (typed.length < 6) typed += k;
+    $('sh-typed').textContent = typed || '–';
+  }
+
+  // ---------------------------------------------------------------- menu
+  $('open-menu').addEventListener('click', () => { closeSheet(); renderMenu(); $('menu').classList.add('on'); window.scrollTo(0, 0); });
+  $('close-menu').addEventListener('click', () => { $('menu').classList.remove('on'); render(); });
+  function savedToday() {
+    const day = CARD ? CARD.race_date : null;
+    return Object.values(S.saved).filter(b => !day || b.date === day).sort((a, b) => a.race_no - b.race_no);
+  }
+  function renderMenu() {
+    if (CARD) {
+      const f = CARD.races[0], l = CARD.races[CARD.races.length - 1];
+      $('card-status').innerHTML = `<b style="color:#fff">${esc(niceDate(CARD.race_date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))}</b><br>${CARD.races.length} races${f.post_time ? ` | post ${esc(f.post_time)} to ${esc(l.post_time)}` : ''} | ${esc(S.drfName || '')}`;
+      $('drf-label').textContent = 'Load a different DRF';
+    } else { $('card-status').textContent = 'No card loaded.'; $('drf-label').textContent = 'Load DRF file'; }
+    const bets = savedToday();
+    $('bets-title').textContent = CARD ? "Bets · " + niceDate(CARD.race_date) : "Today's bets";
+    $('bets-list').innerHTML = bets.length ? bets.map(b => `<div class="li"><div class="rn">R${b.race_no}</div><div class="tx num">${esc(b.clock)} | key ${esc(b.key)} | ${b.tickets.map(t => '$' + t.stake + ' ' + t.combo).join(', ')}</div><div class="amt num">${money(b.total)}</div></div>`).join('') +
+      `<div class="tot"><span>${bets.length} race${bets.length === 1 ? '' : 's'}</span><span class="num">${money(bets.reduce((a, b) => a + b.total, 0))}</span></div>` : '<p>No bets saved yet.</p>';
+    $('version').textContent = MODEL ? 'Model: ' + MODEL.version : '';
+    if (S.scored) renderScore(S.scored);
+  }
+  $('download').addEventListener('click', () => {
+    const bets = savedToday();
+    if (!bets.length) { $('dl-msg').innerHTML = '<div class="note bad">No bets saved yet.</div>'; return; }
+    const date = bets[0].date;
+    const body = JSON.stringify({ app: 'fonner-bets', downloaded_at: new Date().toISOString(), card_date: date, drf_file: S.drfName,
+      model: MODEL.version, bets, odds_history: Object.fromEntries(Object.entries(S.races).filter(([k]) => k.startsWith(date)).map(([k, v]) => [k, v.hist || []])),
+      scored: S.scored }, null, 1);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+    a.download = `fonner-${date}.json`;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    $('dl-msg').innerHTML = `<div class="note good">Downloaded fonner-${date}.json.</div>`;
+  });
+  $('clear-all').addEventListener('click', () => {
+    if (!confirm('Clear the card and the saved bets from this phone?')) return;
+    S = { drfText: null, drfName: null, races: {}, saved: {}, scored: null, cur: 0 }; CARD = null;
+    for (const k in CACHE) delete CACHE[k];
+    save(); renderMenu();
+  });
+  function readText(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsText(file, 'ISO-8859-1'); }); }
+  function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src)); document.head.appendChild(s); }); }
+  async function toTexts(list) {
+    const out = [];
+    for (const f of list) {
+      if (/\.zip$/i.test(f.name)) {
+        if (!window.JSZip) await loadScript('jszip.min.js');
+        const z = await window.JSZip.loadAsync(f);
+        for (const name of Object.keys(z.files)) { const zf = z.files[name]; if (!zf.dir) out.push({ name: name.split('/').pop(), text: new TextDecoder('iso-8859-1').decode(await zf.async('uint8array')) }); }
+      } else out.push({ name: f.name, text: await readText(f) });
+    }
+    return out;
+  }
+  $('drf-input').addEventListener('change', async e => {
+    const files = e.target.files; if (!files || !files.length) return;
+    $('load-msg').innerHTML = '<div class="note">Reading…</div>';
+    try {
+      const texts = await toTexts(files);
+      const f = texts.find(t => /\.drf$/i.test(t.name)) || texts[0];
+      const card = F.parseDRF(f.text);
+      if (!card.races.length) throw new Error('No races found. Is this the DRF data file (not the PDF)?');
+      S.drfText = f.text; S.drfName = f.name; S.cur = 0; CARD = card;
+      for (const k in CACHE) delete CACHE[k];
+      save();
+      $('load-msg').innerHTML = `<div class="note good">Loaded ${card.races.length} races.</div>`;
+      renderMenu(); renderTop();
+    } catch (err) { $('load-msg').innerHTML = `<div class="note bad">${esc(err.message)}</div>`; }
+    e.target.value = '';
+  });
+
+  // results from the chart files (next day)
+  $('chart-input').addEventListener('change', async e => {
+    const files = e.target.files; if (!files || !files.length) return;
+    try {
+      const texts = await toTexts(files);
+      const f2 = texts.find(t => /\.2$/.test(t.name)), f4 = texts.find(t => /\.4$/.test(t.name));
+      if (!f2 || !f4) throw new Error('Need the .2 file (results) and the .4 file (exotic payouts).');
+      const m = /(\d{2})(\d{2})(\d{4})\.2$/.exec(f2.name);
+      S.scored = score(F.parseChart2(f2.text), F.parseChart4(f4.text), m ? `${m[3]}-${m[1]}-${m[2]}` : null);
+      save(); renderScore(S.scored);
+    } catch (err) { $('score-out').innerHTML = `<div class="note bad">${esc(err.message)}</div>`; }
+    e.target.value = '';
+  });
+  function score(res, exo, day) {
+    const races = [];
+    for (const b of Object.values(S.saved).filter(x => !day || x.date === day).sort((x, y) => x.race_no - y.race_no)) {
+      const rows = res.filter(x => x.race_no === b.race_no);
+      const finals = {}, late = new Set();
+      rows.forEach(x => { const k = F.interestOf(x.program); if (x.scratch) late.add(k); else if (x.final_odds != null) finals[k] = x.final_odds; });
+      const order = rows.filter(x => !x.scratch && x.finish).sort((p, q) => p.finish - q.finish).map(x => F.interestOf(x.program));
+      const ex = exo.filter(x => x.race_no === b.race_no && /exacta/i.test(x.bet_type || '') && x.combo && x.base > 0 && x.payout > 0);
+      let ret = 0; const tk = [];
+      for (const t of b.tickets) {
+        const [a, c] = t.combo.split('-');
+        const refund = (late.has(a) && finals[a] == null) || (late.has(c) && finals[c] == null);
+        const w = ex.find(x => x.combo.replace(/[A-Z]/g, '') === t.combo);
+        const got = refund ? t.stake : w ? t.stake * w.payout / w.base : 0;
+        ret += got; tk.push({ combo: t.combo, stake: t.stake, est: t.est, got, hit: !!w, refund });
+      }
+      races.push({ race_no: b.race_no, key: b.key, total: b.total, returned: ret, net: ret - b.total, top2: order.slice(0, 2).join('-'), tickets: tk,
+        odds_move: b.interests.filter(x => finals[x.program] != null).map(x => ({ program: x.program, bet_odds: x.odds, final_odds: finals[x.program] })) });
+    }
+    return { day, scored_at: new Date().toISOString(), races };
+  }
+  function renderScore(sc) {
+    if (!sc || !sc.races.length) { $('score-out').innerHTML = '<div class="note bad">No saved bets match that chart day.</div>'; return; }
+    const st = sc.races.reduce((a, r) => a + r.total, 0), rt = sc.races.reduce((a, r) => a + r.returned, 0);
+    const cashed = sc.races.filter(r => r.tickets.some(t => t.hit)).length;
+    const rows = sc.races.map(r => { const k = r.odds_move.find(x => x.program === r.key);
+      return `<tr><td>R${r.race_no}</td><td class="num">${esc(r.top2)}</td><td class="num">${esc(r.key)}: ${k ? F.fmtOdds(k.bet_odds).replace(/-1$/, '') + ' → ' + exact(k.final_odds).replace(/-1$/, '') : '–'}</td><td class="num">${money(r.total)}</td><td class="num ${r.net >= 0 ? 'pos' : 'neg'}">${money(r.net)}</td></tr>`; }).join('');
+    $('score-out').innerHTML = `<div class="statgrid">
+        <div><div class="v num ${rt - st >= 0 ? 'pos' : 'neg'}">${money(rt - st)}</div><div class="l">Day net</div></div>
+        <div><div class="v num">${cashed} of ${sc.races.length}</div><div class="l">Races cashed</div></div>
+        <div><div class="v num">${money(st)}</div><div class="l">Bet</div></div></div>
+      <table class="sc"><tr><th>Race</th><th>Top 2</th><th>Key: bet → final</th><th>Bet</th><th>Net</th></tr>${rows}</table>`;
+  }
+
+  // ---------------------------------------------------------------- start
+  async function start() {
+    load();
+    try { MODEL = await (await fetch('model.json', { cache: 'no-cache' })).json(); }
+    catch (e) { $('empty').innerHTML = '<div class="big">Could not load the model</div>Check the connection and reload.'; return; }
+    if (S.drfText) { try { CARD = F.parseDRF(S.drfText); if (S.cur >= CARD.races.length) S.cur = 0; } catch (e) { CARD = null; } }
+    render();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (CARD) render(); });
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  window.addEventListener('resize', () => { if (CARD) render(); });
+  start();
+})();
+</script>
+</body>
+</html>
