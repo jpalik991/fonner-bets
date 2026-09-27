@@ -25,7 +25,9 @@
   --text:#fff; --text2:#a6a6ad; --text3:#6f6f77;
   --good:#3ddc97; --bad:#ff6b6b;
 }
-html{-webkit-text-size-adjust:100%;background:var(--bg);}
+html{-webkit-text-size-adjust:100%;background:var(--bg);touch-action:manipulation;}
+*{touch-action:manipulation;}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 body{font-family:var(--font),-apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px;font-weight:400;line-height:1.3;min-height:100vh;-webkit-font-smoothing:antialiased;}
 .num{font-variant-numeric:tabular-nums;}
 button{font-family:inherit;color:inherit;}
@@ -758,6 +760,11 @@ table.sc th:first-child,table.sc td:first-child{text-align:left;}
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   window.addEventListener('resize', () => { if (CARD) render(); });
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+  let lastTouch = 0;
+  document.addEventListener('touchend', e => { const now = Date.now(); if (now - lastTouch < 350 && e.target.closest('.key, .chip, .ob, .rc, .box')) { e.preventDefault(); e.target.click(); } lastTouch = now; }, { passive: false });
+  document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
   start();
 })();
 </script>
